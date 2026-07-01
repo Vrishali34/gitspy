@@ -11,10 +11,6 @@ Ask GitSpy things like:
 
 The LLM decides which GitHub API calls to make, executes them, and responds in natural language — with full conversation memory, so you can ask follow-up questions.
 
-## Demo
-
-![GitSpy chat demo](screenshots/chat-demo.png)
-
 **Example conversation:**
 You: Give me a summary of torvalds' GitHub account
 🤖 GitSpy: Linus Torvalds – GitHub Profile Summary
