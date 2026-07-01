@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>GitSpy - Your GitHub stats, decoded</title>
+    <title>GitSpy 🕵️</title>
     <style>
         body {
             font-family: sans-serif;
@@ -15,6 +15,13 @@
         }
         p {
             color: #0055A4;
+        }
+        .tagline {
+            font-style: italic;
+            color: #0055A4;
+            opacity: 0.75;
+            margin-top: -8px;
+            font-size: 14px;
         }
         #chat {
             border: 2px solid #0055A4;
@@ -41,6 +48,21 @@
         .bot {
             background: #eef7d8;
             color: #003366;
+            white-space: normal;
+        }
+        .bot table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .bot th, .bot td {
+            border: 1px solid #0055A4;
+            padding: 6px 10px;
+            text-align: left;
+        }
+        .bot th {
+            background-color: #DCF4A2;
         }
         #inputRow {
             display: flex;
@@ -67,10 +89,12 @@
             background-color: #003d75;
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.2/marked.min.js"></script>
 </head>
 <body>
     <h1>GitSpy </h1>
-    <p>Your GitHub stats, decoded:</p>
+    <p class="tagline">Spy on any GitHub account's stats</p>
+   
     <div id="chat"></div>
     <div id="inputRow">
         <input type="text" id="question" placeholder="Ask about a GitHub repo or account..." onkeydown="if(event.key==='Enter') askAgent()">
@@ -82,7 +106,13 @@
             const chat = document.getElementById("chat");
             const div = document.createElement("div");
             div.className = "msg " + sender;
-            div.innerText = text;
+
+            if (sender === "bot") {
+                div.innerHTML = marked.parse(text);
+            } else {
+                div.innerText = text;
+            }
+
             chat.appendChild(div);
             chat.scrollTop = chat.scrollHeight;
         }

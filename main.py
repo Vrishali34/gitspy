@@ -11,87 +11,113 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 # ---------- TOOL 1: Get info about a specific repo ----------
 def get_repo_info(owner, repo):
     """Fetch basic info about a GitHub repo."""
-    url = f"https://api.github.com/repos/{owner}/{repo}"
-    response = requests.get(url)
-    if response.status_code != 200:
-        return {"error": f"Could not find repo {owner}/{repo}"}
-    data = response.json()
-    return {
-        "name": data["full_name"],
-        "description": data["description"],
-        "stars": data["stargazers_count"],
-        "open_issues": data["open_issues_count"],
-        "language": data["language"],
-        "last_updated": data["updated_at"]
-    }
+    try:
+        url = f"https://api.github.com/repos/{owner}/{repo}"
+        response = requests.get(url, timeout=10)
+
+        if response.status_code == 403:
+            return {"error": "GitHub API rate limit reached. Please try again in a bit."}
+        if response.status_code != 200:
+            return {"error": f"Could not find repo {owner}/{repo}"}
+
+        data = response.json()
+        return {
+            "name": data["full_name"],
+            "description": data["description"],
+            "stars": data["stargazers_count"],
+            "open_issues": data["open_issues_count"],
+            "language": data["language"],
+            "last_updated": data["updated_at"]
+        }
+    except requests.exceptions.RequestException:
+        return {"error": "Couldn't reach GitHub right now. Please try again."}
 
 
 # ---------- TOOL 2: Summarize a user's whole account ----------
 def get_account_summary(username):
     """Summarize a GitHub user's account: bio, total stars, top repo, top language."""
-    profile_url = f"https://api.github.com/users/{username}"
-    profile_res = requests.get(profile_url)
-    if profile_res.status_code != 200:
-        return {"error": f"Could not find user {username}"}
-    profile = profile_res.json()
+    try:
+        profile_url = f"https://api.github.com/users/{username}"
+        profile_res = requests.get(profile_url, timeout=10)
 
-    repos_url = f"https://api.github.com/users/{username}/repos?per_page=100"
-    repos_res = requests.get(repos_url)
-    repos = repos_res.json()
+        if profile_res.status_code == 403:
+            return {"error": "GitHub API rate limit reached. Please try again in a bit."}
+        if profile_res.status_code != 200:
+            return {"error": f"Could not find user {username}"}
+        profile = profile_res.json()
 
-    if not repos:
-        return {"error": f"{username} has no public repos"}
+        repos_url = f"https://api.github.com/users/{username}/repos?per_page=100"
+        repos_res = requests.get(repos_url, timeout=10)
 
-    total_stars = sum(repo["stargazers_count"] for repo in repos)
-    top_repo = max(repos, key=lambda r: r["stargazers_count"])
+        if repos_res.status_code == 403:
+            return {"error": "GitHub API rate limit reached. Please try again in a bit."}
 
-    language_counts = {}
-    for repo in repos:
-        lang = repo["language"]
-        if lang:
-            language_counts[lang] = language_counts.get(lang, 0) + 1
+        repos = repos_res.json()
 
-    most_used_language = max(language_counts, key=language_counts.get) if language_counts else "Unknown"
+        if not repos:
+            return {"error": f"{username} has no public repos"}
 
-    return {
-        "username": profile["login"],
-        "bio": profile.get("bio"),
-        "followers": profile["followers"],
-        "public_repos": profile["public_repos"],
-        "total_stars_across_repos": total_stars,
-        "top_repo": top_repo["name"],
-        "top_repo_stars": top_repo["stargazers_count"],
-        "most_used_language": most_used_language,
-        "account_created": profile["created_at"]
-    }
+        total_stars = sum(repo["stargazers_count"] for repo in repos)
+        top_repo = max(repos, key=lambda r: r["stargazers_count"])
 
-#----------list user repos--------#
+        language_counts = {}
+        for repo in repos:
+            lang = repo["language"]
+            if lang:
+                language_counts[lang] = language_counts.get(lang, 0) + 1
+
+        most_used_language = max(language_counts, key=language_counts.get) if language_counts else "Unknown"
+
+        return {
+            "username": profile["login"],
+            "bio": profile.get("bio"),
+            "followers": profile["followers"],
+            "public_repos": profile["public_repos"],
+            "total_stars_across_repos": total_stars,
+            "top_repo": top_repo["name"],
+            "top_repo_stars": top_repo["stargazers_count"],
+            "most_used_language": most_used_language,
+            "account_created": profile["created_at"]
+        }
+    except requests.exceptions.RequestException:
+        return {"error": "Couldn't reach GitHub right now. Please try again."}
+
+
+# ---------- TOOL 3: List all repos for a user ----------
 def list_user_repos(username):
     """List all public repos for a user, sorted by stars, with basic details."""
-    repos_url = f"https://api.github.com/users/{username}/repos?per_page=100&sort=updated"
-    repos_res = requests.get(repos_url)
-    if repos_res.status_code != 200:
-        return {"error": f"Could not find user {username}"}
-    repos = repos_res.json()
+    try:
+        repos_url = f"https://api.github.com/users/{username}/repos?per_page=100&sort=updated"
+        repos_res = requests.get(repos_url, timeout=10)
 
-    if not repos:
-        return {"error": f"{username} has no public repos"}
+        if repos_res.status_code == 403:
+            return {"error": "GitHub API rate limit reached. Please try again in a bit."}
+        if repos_res.status_code != 200:
+            return {"error": f"Could not find user {username}"}
 
-    repo_list = sorted(
-        [
-            {
-                "name": repo["name"],
-                "stars": repo["stargazers_count"],
-                "language": repo["language"],
-                "description": repo["description"]
-            }
-            for repo in repos
-        ],
-        key=lambda r: r["stars"],
-        reverse=True
-    )
+        repos = repos_res.json()
 
-    return {"username": username, "repo_count": len(repo_list), "repos": repo_list}
+        if not repos:
+            return {"error": f"{username} has no public repos"}
+
+        repo_list = sorted(
+            [
+                {
+                    "name": repo["name"],
+                    "stars": repo["stargazers_count"],
+                    "language": repo["language"],
+                    "description": repo["description"]
+                }
+                for repo in repos
+            ],
+            key=lambda r: r["stars"],
+            reverse=True
+        )
+
+        return {"username": username, "repo_count": len(repo_list), "repos": repo_list}
+    except requests.exceptions.RequestException:
+        return {"error": "Couldn't reach GitHub right now. Please try again."}
+
 
 # ---------- Tool descriptions for the LLM ----------
 tools = [
@@ -128,7 +154,7 @@ tools = [
         "type": "function",
         "function": {
             "name": "list_user_repos",
-            "description": "List all public repositories for a GitHub user, including each repo's name, stars, language, and description. Use this when asked to list, name, or detail individual repos, or their tech stacks.",
+            "description": "List all public repositories for a GitHub user, including each repo's name, stars, language, and description. Use this when asked to list, name, or detail individual repos, or their tech stacks, or to compare accounts.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -138,7 +164,6 @@ tools = [
             }
         }
     }
-    
 ]
 
 available_functions = {
@@ -148,73 +173,76 @@ available_functions = {
 }
 
 
-# ---------- Core agent loop, now reusable + conversation-aware ----------
+# ---------- Core agent loop, reusable + conversation-aware ----------
 def run_agent(user_question, history=None):
     """
-    Runs one turn of the agent loop.
-    history: list of prior messages (plain dicts), or None for a fresh conversation.
+    Runs the agent loop, allowing multiple rounds of tool calls if needed
+    (e.g. comparing two accounts requires calling a tool twice, sequentially).
     Returns: (answer_text, updated_history)
     """
     if history is None:
         history = []
 
+    if not user_question or not user_question.strip():
+        return "Please type a question first!", history
+
     messages = history + [{"role": "user", "content": user_question}]
 
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-20b",
-        messages=messages,
-        tools=tools
-    )
+    max_rounds = 5  # safety limit so it can never loop forever
+    for _ in range(max_rounds):
+        try:
+            response = client.chat.completions.create(
+                model="openai/gpt-oss-20b",
+                messages=messages,
+                tools=tools
+            )
+        except Exception as e:
+            print(f"DEBUG ERROR: {e}")
+            return "Sorry, I couldn't reach the AI service right now. Please try again in a moment.", history
 
-    response_message = response.choices[0].message
+        response_message = response.choices[0].message
 
-    # Build a clean assistant message with ONLY the fields the API accepts back
-    assistant_msg = {
-        "role": "assistant",
-        "content": response_message.content
-    }
-    if response_message.tool_calls:
-        assistant_msg["tool_calls"] = [
-            {
-                "id": tc.id,
-                "type": "function",
-                "function": {
-                    "name": tc.function.name,
-                    "arguments": tc.function.arguments
+        assistant_msg = {
+            "role": "assistant",
+            "content": response_message.content
+        }
+        if response_message.tool_calls:
+            assistant_msg["tool_calls"] = [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments
+                    }
                 }
-            }
-            for tc in response_message.tool_calls
-        ]
-    messages.append(assistant_msg)
+                for tc in response_message.tool_calls
+            ]
+        messages.append(assistant_msg)
 
-    if response_message.tool_calls:
+        if not response_message.tool_calls:
+            # No more tools needed - this is the final answer
+            return response_message.content, messages
+
+        # Execute every tool call the model asked for this round
         for tool_call in response_message.tool_calls:
             function_name = tool_call.function.name
-            function_args = json.loads(tool_call.function.arguments)
-
-            function_to_call = available_functions[function_name]
-            result = function_to_call(**function_args)
+            try:
+                function_args = json.loads(tool_call.function.arguments)
+                function_to_call = available_functions[function_name]
+                result = function_to_call(**function_args)
+            except Exception as e:
+                print(f"DEBUG TOOL ERROR: {e}")
+                result = {"error": f"Something went wrong while running {function_name}."}
 
             messages.append({
                 "role": "tool",
                 "tool_call_id": tool_call.id,
                 "content": json.dumps(result)
             })
+        # Loop back around - model gets another turn, now with tools still available
 
-        final_response = client.chat.completions.create(
-            model="openai/gpt-oss-20b",
-            messages=messages
-        )
-        final_message = final_response.choices[0].message
-        messages.append({
-            "role": "assistant",
-            "content": final_message.content
-        })
-        return final_message.content, messages
-    else:
-        return response_message.content, messages 
-
-
+    return "Sorry, that request needed too many steps. Try asking something more specific.", history
 # ---------- Standalone terminal chat mode ----------
 if __name__ == "__main__":
     print("GitSpy is ready! Ask me about a GitHub repo or account. Type 'quit' to exit.\n")
