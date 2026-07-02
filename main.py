@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import requests
 from dotenv import load_dotenv
@@ -7,10 +8,19 @@ from groq import Groq
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
+VALID_GITHUB_NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$')
+
+
+def is_valid_github_name(name):
+    """Check if a string is a plausible GitHub username or repo name."""
+    return bool(name) and bool(VALID_GITHUB_NAME.match(name))
+
 
 # ---------- TOOL 1: Get info about a specific repo ----------
 def get_repo_info(owner, repo):
     """Fetch basic info about a GitHub repo."""
+    if not is_valid_github_name(owner) or not is_valid_github_name(repo):
+        return {"error": "Invalid owner or repo name."}
     try:
         url = f"https://api.github.com/repos/{owner}/{repo}"
         response = requests.get(url, timeout=10)
@@ -36,6 +46,8 @@ def get_repo_info(owner, repo):
 # ---------- TOOL 2: Summarize a user's whole account ----------
 def get_account_summary(username):
     """Summarize a GitHub user's account: bio, total stars, top repo, top language."""
+    if not is_valid_github_name(username):
+        return {"error": "Invalid username."}
     try:
         profile_url = f"https://api.github.com/users/{username}"
         profile_res = requests.get(profile_url, timeout=10)
@@ -86,6 +98,8 @@ def get_account_summary(username):
 # ---------- TOOL 3: List all repos for a user ----------
 def list_user_repos(username):
     """List all public repos for a user, sorted by stars, with basic details."""
+    if not is_valid_github_name(username):
+        return {"error": "Invalid username."}
     try:
         repos_url = f"https://api.github.com/users/{username}/repos?per_page=100&sort=updated"
         repos_res = requests.get(repos_url, timeout=10)
@@ -172,6 +186,22 @@ available_functions = {
     "list_user_repos": list_user_repos
 }
 
+# ---------- System prompt: defines the agent's scope ----------
+SYSTEM_PROMPT = {
+    "role": "system",
+    "content": (
+        "You are GitSpy, an AI agent that answers questions about GitHub "
+        "accounts and repositories things like stars, top repos, most-used "
+        "languages, and comparisons between accounts — using live GitHub data "
+        "via your tools.\n\n"
+        "If the user asks something unrelated to GitHub (general knowledge, "
+        "coding help unrelated to GitHub stats, personal opinions, etc.), "
+        "politely explain that you're specialized for GitHub account/repo "
+        "questions and ask them to rephrase their question in that context. "
+        "Do not answer unrelated questions from general knowledge."
+    )
+}
+
 
 # ---------- Core agent loop, reusable + conversation-aware ----------
 def run_agent(user_question, history=None):
@@ -186,7 +216,8 @@ def run_agent(user_question, history=None):
     if not user_question or not user_question.strip():
         return "Please type a question first!", history
 
-    messages = history + [{"role": "user", "content": user_question}]
+    # history never contains the system prompt (see below) - only add it here, fresh, per call
+    messages = [SYSTEM_PROMPT] + history + [{"role": "user", "content": user_question}]
 
     max_rounds = 5  # safety limit so it can never loop forever
     for _ in range(max_rounds):
@@ -195,7 +226,7 @@ def run_agent(user_question, history=None):
                 model="openai/gpt-oss-20b",
                 messages=messages,
                 tools=tools,
-                timeout=20 # priority fix 1 - timeout to grok api call to prevent hanging requests
+                timeout=20
             )
         except Exception as e:
             print(f"DEBUG ERROR: {e}")
@@ -222,8 +253,11 @@ def run_agent(user_question, history=None):
         messages.append(assistant_msg)
 
         if not response_message.tool_calls:
-            # No more tools needed - this is the final answer
-            return response_message.content, messages
+            # No more tools needed - this is the final answer.
+            # Strip the system prompt before saving to history, since we
+            # re-add it fresh at the top of every call - without this,
+            # the system prompt would duplicate on every turn.
+            return response_message.content, messages[1:]
 
         # Execute every tool call the model asked for this round
         for tool_call in response_message.tool_calls:
@@ -244,6 +278,8 @@ def run_agent(user_question, history=None):
         # Loop back around - model gets another turn, now with tools still available
 
     return "Sorry, that request needed too many steps. Try asking something more specific.", history
+
+
 # ---------- Standalone terminal chat mode ----------
 if __name__ == "__main__":
     print("GitSpy is ready! Ask me about a GitHub repo or account. Type 'quit' to exit.\n")
