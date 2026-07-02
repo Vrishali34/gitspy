@@ -11,6 +11,11 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY")
 if not app.secret_key:
     raise RuntimeError("FLASK_SECRET_KEY environment variable is not set")
 
+# Session cookie security flags
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = os.getenv("FLASK_ENV") == "production"
+
 MAX_QUESTION_LENGTH = 500  # characters
 
 
