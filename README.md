@@ -32,6 +32,29 @@ Most used language: C
 
 This loop (think → act → observe → respond) is the core pattern behind every AI agent, regardless of framework.
 
+## Architecture
+
+GitSpy is a conversational agent that answers questions about GitHub 
+repos and accounts. It uses an LLM (Groq, gpt-oss-20b) with function-calling 
+to decide which GitHub API calls to make, executes them, and loops until 
+it has enough information to respond.
+
+```mermaid
+flowchart LR
+    UI[Chat UI] --> Route[Flask Route]
+    Route --> Session[(Session Store)]
+    Route --> Agent[Agent Loop]
+    Agent --> Groq[Groq LLM]
+    Groq --> T1[Repo Info Tool]
+    Groq --> T2[Account Summary Tool]
+    Groq --> T3[List Repos Tool]
+```
+
+The user's question flows through Flask into the agent loop, which calls 
+Groq's LLM. The LLM decides whether to answer directly or call one of the 
+three GitHub tools — if it calls a tool, the result gets fed back into the 
+loop so the model can reason over it (up to 5 rounds, to prevent infinite 
+looping on ambiguous questions).
 ## Tech stack
 
 - **Python** — core logic
