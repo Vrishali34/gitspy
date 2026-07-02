@@ -11,6 +11,8 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY")
 if not app.secret_key:
     raise RuntimeError("FLASK_SECRET_KEY environment variable is not set")
 
+MAX_QUESTION_LENGTH = 500  # characters
+
 
 @app.route("/")
 def home():
@@ -21,10 +23,13 @@ def home():
 @app.route("/ask", methods=["POST"])
 def ask():
     data = request.get_json()
-    question = data.get("question")
+    question = (data.get("question") or "").strip()
 
     if not question:
         return jsonify({"error": "No question provided"}), 400
+
+    if len(question) > MAX_QUESTION_LENGTH:
+        return jsonify({"error": f"Question too long. Please keep it under {MAX_QUESTION_LENGTH} characters."}), 400
 
     history = session.get("history", [])
     answer, updated_history = run_agent(question, history)
