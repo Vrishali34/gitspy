@@ -194,7 +194,8 @@ def run_agent(user_question, history=None):
             response = client.chat.completions.create(
                 model="openai/gpt-oss-20b",
                 messages=messages,
-                tools=tools
+                tools=tools,
+                timeout=20 # priority fix 1 - timeout to grok api call to prevent hanging requests
             )
         except Exception as e:
             print(f"DEBUG ERROR: {e}")
