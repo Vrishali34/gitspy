@@ -1,9 +1,15 @@
 import os
+from dotenv import load_dotenv
 from flask import Flask, request, render_template, session, jsonify
 from main import run_agent
 
+load_dotenv()
+
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # needed to securely sign session cookies
+app.secret_key = os.getenv("FLASK_SECRET_KEY")
+
+if not app.secret_key:
+    raise RuntimeError("FLASK_SECRET_KEY environment variable is not set")
 
 
 @app.route("/")
@@ -28,4 +34,4 @@ def ask():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=os.getenv("FLASK_DEBUG", "False") == "True")
