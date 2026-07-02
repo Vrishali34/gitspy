@@ -8,6 +8,8 @@ from groq import Groq
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
+GITHUB_HEADERS = {"Authorization": f"token {os.getenv('GITHUB_TOKEN')}"} if os.getenv("GITHUB_TOKEN") else {}
+
 VALID_GITHUB_NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$')
 
 
@@ -23,7 +25,7 @@ def get_repo_info(owner, repo):
         return {"error": "Invalid owner or repo name."}
     try:
         url = f"https://api.github.com/repos/{owner}/{repo}"
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, headers=GITHUB_HEADERS, timeout=10)
 
         if response.status_code == 403:
             return {"error": "GitHub API rate limit reached. Please try again in a bit."}
@@ -50,7 +52,7 @@ def get_account_summary(username):
         return {"error": "Invalid username."}
     try:
         profile_url = f"https://api.github.com/users/{username}"
-        profile_res = requests.get(profile_url, timeout=10)
+        profile_res = requests.get(profile_url, headers=GITHUB_HEADERS, timeout=10)
 
         if profile_res.status_code == 403:
             return {"error": "GitHub API rate limit reached. Please try again in a bit."}
@@ -59,7 +61,7 @@ def get_account_summary(username):
         profile = profile_res.json()
 
         repos_url = f"https://api.github.com/users/{username}/repos?per_page=100"
-        repos_res = requests.get(repos_url, timeout=10)
+        repos_res = requests.get(repos_url, headers=GITHUB_HEADERS, timeout=10)
 
         if repos_res.status_code == 403:
             return {"error": "GitHub API rate limit reached. Please try again in a bit."}
@@ -102,7 +104,7 @@ def list_user_repos(username):
         return {"error": "Invalid username."}
     try:
         repos_url = f"https://api.github.com/users/{username}/repos?per_page=100&sort=updated"
-        repos_res = requests.get(repos_url, timeout=10)
+        repos_res = requests.get(repos_url, headers=GITHUB_HEADERS, timeout=10)
 
         if repos_res.status_code == 403:
             return {"error": "GitHub API rate limit reached. Please try again in a bit."}
@@ -191,7 +193,7 @@ SYSTEM_PROMPT = {
     "role": "system",
     "content": (
         "You are GitSpy, an AI agent that answers questions about GitHub "
-        "accounts and repositories things like stars, top repos, most-used "
+        "accounts and repositories — things like stars, top repos, most-used "
         "languages, and comparisons between accounts — using live GitHub data "
         "via your tools.\n\n"
         "If the user asks something unrelated to GitHub (general knowledge, "
@@ -216,7 +218,7 @@ def run_agent(user_question, history=None):
     if not user_question or not user_question.strip():
         return "Please type a question first!", history
 
-    # history never contains the system prompt (see below) - only add it here, fresh, per call
+    # history never contains the system prompt - only add it here, fresh, per call
     messages = [SYSTEM_PROMPT] + history + [{"role": "user", "content": user_question}]
 
     max_rounds = 5  # safety limit so it can never loop forever
