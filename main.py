@@ -12,10 +12,19 @@ GITHUB_HEADERS = {"Authorization": f"token {os.getenv('GITHUB_TOKEN')}"} if os.g
 
 VALID_GITHUB_NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$')
 
+MAX_HISTORY_MESSAGES = 12  # keep the last N messages to avoid session cookie overflow
+
 
 def is_valid_github_name(name):
     """Check if a string is a plausible GitHub username or repo name."""
     return bool(name) and bool(VALID_GITHUB_NAME.match(name))
+
+
+def trim_history(messages):
+    """Keep only the most recent messages to avoid session cookie overflow."""
+    if len(messages) > MAX_HISTORY_MESSAGES:
+        return messages[-MAX_HISTORY_MESSAGES:]
+    return messages
 
 
 # ---------- TOOL 1: Get info about a specific repo ----------
@@ -256,10 +265,9 @@ def run_agent(user_question, history=None):
 
         if not response_message.tool_calls:
             # No more tools needed - this is the final answer.
-            # Strip the system prompt before saving to history, since we
-            # re-add it fresh at the top of every call - without this,
-            # the system prompt would duplicate on every turn.
-            return response_message.content, messages[1:]
+            # Strip the system prompt (re-added fresh each call) and trim
+            # history length before saving to session, to avoid cookie overflow.
+            return response_message.content, trim_history(messages[1:])
 
         # Execute every tool call the model asked for this round
         for tool_call in response_message.tool_calls:
