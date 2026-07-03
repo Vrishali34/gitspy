@@ -12,19 +12,10 @@ GITHUB_HEADERS = {"Authorization": f"token {os.getenv('GITHUB_TOKEN')}"} if os.g
 
 VALID_GITHUB_NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$')
 
-MAX_HISTORY_MESSAGES = 12  # keep the last N messages to avoid session cookie overflow
-
 
 def is_valid_github_name(name):
     """Check if a string is a plausible GitHub username or repo name."""
     return bool(name) and bool(VALID_GITHUB_NAME.match(name))
-
-
-def trim_history(messages):
-    """Keep only the most recent messages to avoid session cookie overflow."""
-    if len(messages) > MAX_HISTORY_MESSAGES:
-        return messages[-MAX_HISTORY_MESSAGES:]
-    return messages
 
 
 # ---------- TOOL 1: Get info about a specific repo ----------
@@ -219,6 +210,17 @@ def run_agent(user_question, history=None):
     """
     Runs the agent loop, allowing multiple rounds of tool calls if needed
     (e.g. comparing two accounts requires calling a tool twice, sequentially).
+
+    `history` is a turn-based list containing only clean
+    {role: user/assistant, content: ...} pairs from *previous* turns - never
+    tool_calls/tool messages, and never the system prompt.
+
+    Within a single call, `messages` is used as a private scratchpad that may
+    grow to include tool_calls/tool messages for multi-round reasoning, but
+    that scratchpad is discarded once a final answer is produced - only the
+    new clean {user, assistant} pair for *this* turn gets appended to history
+    before it's returned for persisting into the session.
+
     Returns: (answer_text, updated_history)
     """
     if history is None:
@@ -264,10 +266,15 @@ def run_agent(user_question, history=None):
         messages.append(assistant_msg)
 
         if not response_message.tool_calls:
-            # No more tools needed - this is the final answer.
-            # Strip the system prompt (re-added fresh each call) and trim
-            # history length before saving to session, to avoid cookie overflow.
-            return response_message.content, trim_history(messages[1:])
+            # Final answer. Persist only the clean {user, assistant} pair for
+            # this turn - discard the entire tool_calls/tool scratchpad. This
+            # keeps the session cookie small and guarantees no matched
+            # assistant(tool_calls)/tool pair is ever orphaned by later trims.
+            new_history = history + [
+                {"role": "user", "content": user_question},
+                {"role": "assistant", "content": response_message.content}
+            ]
+            return response_message.content, new_history
 
         # Execute every tool call the model asked for this round
         for tool_call in response_message.tool_calls:
