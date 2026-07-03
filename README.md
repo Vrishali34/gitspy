@@ -103,9 +103,6 @@ GROQ_API_KEY=your_key_here
 
 ![Interface 1](screenshots/gitspy%20-%20interface%202.png)
 ![Interface 2](screenshots/gitspy%20-%20interface%201.png)
-
-## Demo
-
 ![Chat example 1](screenshots/gitspy%20-%20chat%201.png)
 ![Chat example 2](screenshots/gitspy%20-%20chat%202.png)
 ![Chat example 3](screenshots/gitspy%20-%20chat%203.png)
