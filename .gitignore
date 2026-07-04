@@ -3,3 +3,4 @@ venv/
 __pycache__/
 .DS_Store
 .flask_session/
+gitspy-project.md
