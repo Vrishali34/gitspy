@@ -1,6 +1,6 @@
 # GitSpy 
 
-An AI agent that answers natural-language questions about GitHub accounts and repositories using LLM function-calling — built to learn how AI agents actually work under the hood.
+An AI agent that answers natural-language questions about GitHub accounts and repositories using LLM function-calling built to learn how AI agents actually work under the hood.
 
 ## What it does
 
