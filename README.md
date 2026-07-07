@@ -12,6 +12,9 @@ Ask GitSpy things like:
 
 The LLM decides which GitHub API calls to make, executes them, and responds in natural language — with full conversation memory, so you can ask follow-up questions.
 
+
+**🔗 Live demo:** [https://gitspy-m6lj.onrender.com](https://gitspy-m6lj.onrender.com)
+
 **Example conversation:**
 ```
 You: Give me a summary of dhravya's GitHub account
