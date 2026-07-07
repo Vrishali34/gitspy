@@ -5,10 +5,10 @@ An AI agent that answers natural-language questions about GitHub accounts and re
 ## What it does
 
 Ask GitSpy things like:
-- "Give me a summary of a user's GitHub account"
-- "How many stars does a repo have?"
-- "List all repos for a user"
-- "Any question but related to github only"
+- Give me a summary of a user's GitHub account
+- How many stars does a repo have?
+- List all repos for a user
+- Any question but related to github only
 
 The LLM decides which GitHub API calls to make, executes them, and responds in natural language — with full conversation memory, so you can ask follow-up questions.
 
